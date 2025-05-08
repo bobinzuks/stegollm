@@ -1,0 +1,17 @@
+version: '3'
+
+services:
+  stegollm:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: stegollm
+    ports:
+      - "8080:8080"  # Proxy port
+      - "8081:8081"  # Web UI port
+    volumes:
+      - ${HOME}/.config/stegollm:/root/.config/stegollm
+    restart: unless-stopped
+    environment:
+      - STEGOLLM_LOG_LEVEL=info
+    command: start --port 8080 --ui-port 8081 --verbose

@@ -1,0 +1,28 @@
+# Core dependencies
+fastapi>=0.95.0
+uvicorn>=0.21.1
+mitmproxy>=9.0.1
+pydantic>=2.0.0
+python-dotenv>=1.0.0
+typer>=0.9.0
+rich>=13.4.2
+
+# For web UI
+jinja2>=3.1.2
+aiofiles>=23.1.0
+python-multipart>=0.0.6
+
+# For compression strategies
+nltk>=3.8.1
+zlib-state>=0.1.5
+base2048>=1.0.0
+stegano>=0.10.2
+
+# For deep learning (optional)
+tensorflow-lite>=2.12.0
+scikit-learn>=1.2.2
+
+# For testing
+pytest>=7.3.1
+pytest-cov>=4.1.0
+requests>=2.28.2

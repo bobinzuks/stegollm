@@ -1,0 +1,453 @@
+{% extends "base.html" %}
+
+{% block title %}StegoLLM - Custom Instructions{% endblock %}
+{% block custom_active %}active{% endblock %}
+
+{% block content %}
+<div class="custom-instructions-container">
+    <h1>Custom Compression Instructions</h1>
+    
+    <div id="alert-container"></div>
+    
+    <div class="template-selector">
+        <button class="template-btn" data-template="programming">Programming Template</button>
+        <button class="template-btn" data-template="general">General Template</button>
+        <button class="template-btn" data-template="empty">Empty Template</button>
+    </div>
+    
+    <div class="editor-container">
+        <textarea id="jsonEditor" class="json-editor">{{ custom_instructions | tojson(indent=2) }}</textarea>
+    </div>
+    
+    <div class="help-section">
+        <div class="collapsible">
+            <h3 class="collapsible-header">How to Create Custom Instructions <span class="collapsible-icon">+</span></h3>
+            <div class="collapsible-content">
+                <p>Custom instructions allow you to define your own compression rules and dictionaries to optimize compression for your specific use cases.</p>
+                
+                <h4>Structure</h4>
+                <p>The JSON file has two main sections:</p>
+                <ul>
+                    <li><strong>rules</strong>: Patterns to replace with shorter versions</li>
+                    <li><strong>dictionaries</strong>: Collections of word replacements</li>
+                </ul>
+                
+                <h4>Rules</h4>
+                <p>Rules define patterns to replace with shorter versions. For example:</p>
+                <pre><code>{
+  "pattern": "Write a function",
+  "replacement": "WF:",
+  "context": "programming" // Optional context
+}</code></pre>
+                
+                <h4>Dictionaries</h4>
+                <p>Dictionaries define word replacements grouped by category. For example:</p>
+                <pre><code>{
+  "name": "programming_terms",
+  "entries": {
+    "function": "fn",
+    "variable": "var",
+    "algorithm": "algo"
+  }
+}</code></pre>
+            </div>
+        </div>
+        
+        <div class="collapsible">
+            <h3 class="collapsible-header">Example Templates <span class="collapsible-icon">+</span></h3>
+            <div class="collapsible-content">
+                <h4>Programming Template</h4>
+                <p>Optimized for programming-related prompts with coding terminology.</p>
+                
+                <h4>General Template</h4>
+                <p>A general-purpose template suitable for a wide range of prompts.</p>
+                
+                <h4>Empty Template</h4>
+                <p>Start from scratch with a minimal structure.</p>
+            </div>
+        </div>
+    </div>
+    
+    <div class="form-actions">
+        <button id="saveInstructionsBtn" class="btn">Save Instructions</button>
+        <button id="testInstructionsBtn" class="btn">Test Compression</button>
+    </div>
+    
+    <div id="test-result" class="test-result hidden">
+        <h3>Compression Test Results</h3>
+        <div class="test-content">
+            <div class="test-input">
+                <h4>Original</h4>
+                <div id="test-original"></div>
+                <div id="test-original-size" class="size-indicator"></div>
+            </div>
+            <div class="test-output">
+                <h4>Compressed</h4>
+                <div id="test-compressed"></div>
+                <div id="test-compressed-size" class="size-indicator"></div>
+            </div>
+        </div>
+        <div id="test-savings" class="test-savings"></div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="https://cdnjs.cloudflare.com/ajax/libs/ace/1.4.12/ace.js"></script>
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Initialize the JSON editor (using Ace editor)
+    let editor;
+    try {
+        editor = ace.edit("jsonEditor");
+        editor.setTheme("ace/theme/monokai");
+        editor.session.setMode("ace/mode/json");
+        editor.setFontSize(14);
+        editor.setShowPrintMargin(false);
+        editor.getSession().setUseWrapMode(true);
+    } catch (e) {
+        console.error("Error initializing Ace editor:", e);
+        // Fall back to basic textarea
+        document.getElementById("jsonEditor").style.display = "block";
+    }
+    
+    // Templates
+    const templates = {
+        programming: {
+            rules: [
+                {"pattern": "Write a function", "replacement": "WF:", "context": "programming"},
+                {"pattern": "Implement a function", "replacement": "IF:", "context": "programming"},
+                {"pattern": "Create a class", "replacement": "CC:", "context": "programming"},
+                {"pattern": "How do I", "replacement": "HDI:", "context": "programming"},
+                {"pattern": "What is", "replacement": "WI:", "context": "general"}
+            ],
+            dictionaries: [
+                {
+                    name: "programming_terms",
+                    entries: {
+                        "function": "fn",
+                        "algorithm": "algo",
+                        "variable": "var",
+                        "parameter": "param",
+                        "argument": "arg",
+                        "database": "db",
+                        "implementation": "impl",
+                        "Python": "PY",
+                        "JavaScript": "JS",
+                        "TypeScript": "TS",
+                        "asynchronous": "async",
+                        "synchronous": "sync"
+                    }
+                }
+            ]
+        },
+        general: {
+            rules: [
+                {"pattern": "Explain how", "replacement": "EH:"},
+                {"pattern": "What is the difference between", "replacement": "WITDB:"},
+                {"pattern": "How can I", "replacement": "HCI:"},
+                {"pattern": "Give me an example of", "replacement": "GME:"},
+                {"pattern": "Tell me about", "replacement": "TMA:"}
+            ],
+            dictionaries: [
+                {
+                    name: "common_terms",
+                    entries: {
+                        "example": "ex",
+                        "information": "info",
+                        "different": "diff",
+                        "application": "app",
+                        "question": "q",
+                        "answer": "ans",
+                        "problem": "prob",
+                        "solution": "sol"
+                    }
+                }
+            ]
+        },
+        empty: {
+            rules: [],
+            dictionaries: [
+                {
+                    name: "custom_dictionary",
+                    entries: {}
+                }
+            ]
+        }
+    };
+    
+    // Apply template
+    const templateButtons = document.querySelectorAll('.template-btn');
+    templateButtons.forEach(button => {
+        button.addEventListener('click', function() {
+            const template = this.getAttribute('data-template');
+            if (templates[template]) {
+                if (confirm("This will replace your current instructions. Are you sure?")) {
+                    if (editor) {
+                        editor.setValue(JSON.stringify(templates[template], null, 2));
+                    } else {
+                        document.getElementById("jsonEditor").value = JSON.stringify(templates[template], null, 2);
+                    }
+                }
+            }
+        });
+    });
+    
+    // Handle collapsible sections
+    const collapsibles = document.querySelectorAll('.collapsible-header');
+    collapsibles.forEach(header => {
+        header.addEventListener('click', function() {
+            const content = this.nextElementSibling;
+            const icon = this.querySelector('.collapsible-icon');
+            
+            if (content.style.display === 'block') {
+                content.style.display = 'none';
+                icon.textContent = '+';
+            } else {
+                content.style.display = 'block';
+                icon.textContent = '-';
+            }
+        });
+    });
+    
+    // Save instructions
+    const saveBtn = document.getElementById('saveInstructionsBtn');
+    if (saveBtn) {
+        saveBtn.addEventListener('click', function() {
+            let instructions;
+            try {
+                if (editor) {
+                    instructions = JSON.parse(editor.getValue());
+                } else {
+                    instructions = JSON.parse(document.getElementById("jsonEditor").value);
+                }
+                
+                fetch('/api/custom_instructions', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify(instructions),
+                })
+                .then(response => response.json())
+                .then(data => {
+                    showAlert('Custom instructions saved successfully.', 'success');
+                })
+                .catch(error => {
+                    showAlert('Error saving custom instructions: ' + error, 'danger');
+                });
+            } catch (e) {
+                showAlert('Invalid JSON: ' + e.message, 'danger');
+            }
+        });
+    }
+    
+    // Test compression
+    const testBtn = document.getElementById('testInstructionsBtn');
+    if (testBtn) {
+        testBtn.addEventListener('click', function() {
+            let instructions;
+            try {
+                if (editor) {
+                    instructions = JSON.parse(editor.getValue());
+                } else {
+                    instructions = JSON.parse(document.getElementById("jsonEditor").value);
+                }
+                
+                // Example text to compress
+                const testPrompt = "Write a function to implement a binary search algorithm in Python with error handling and detailed comments.";
+                
+                // Send to server for compression test
+                fetch('/api/test_compression', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        instructions: instructions,
+                        prompt: testPrompt
+                    }),
+                })
+                .then(response => response.json())
+                .then(data => {
+                    // Show test results
+                    document.getElementById('test-result').classList.remove('hidden');
+                    document.getElementById('test-original').textContent = data.original;
+                    document.getElementById('test-compressed').textContent = data.compressed;
+                    document.getElementById('test-original-size').textContent = `${data.original_size} characters`;
+                    document.getElementById('test-compressed-size').textContent = `${data.compressed_size} characters`;
+                    
+                    const savings = data.original_size - data.compressed_size;
+                    const ratio = (savings / data.original_size * 100).toFixed(2);
+                    document.getElementById('test-savings').textContent = 
+                        `Saved ${savings} characters (${ratio}% compression)`;
+                })
+                .catch(error => {
+                    // If server test fails, perform client-side test with basic dictionary
+                    clientSideCompressionTest(instructions, testPrompt);
+                });
+            } catch (e) {
+                showAlert('Invalid JSON: ' + e.message, 'danger');
+            }
+        });
+    }
+    
+    // Client-side compression test (simplified)
+    function clientSideCompressionTest(instructions, testPrompt) {
+        let compressed = testPrompt;
+        
+        // Apply rules
+        if (instructions.rules) {
+            for (const rule of instructions.rules) {
+                if (rule.pattern && rule.replacement) {
+                    compressed = compressed.replace(new RegExp(rule.pattern, 'g'), rule.replacement);
+                }
+            }
+        }
+        
+        // Apply dictionaries
+        if (instructions.dictionaries) {
+            for (const dict of instructions.dictionaries) {
+                if (dict.entries) {
+                    for (const [word, replacement] of Object.entries(dict.entries)) {
+                        compressed = compressed.replace(new RegExp('\\b' + word + '\\b', 'g'), replacement);
+                    }
+                }
+            }
+        }
+        
+        // Show results
+        document.getElementById('test-result').classList.remove('hidden');
+        document.getElementById('test-original').textContent = testPrompt;
+        document.getElementById('test-compressed').textContent = compressed;
+        document.getElementById('test-original-size').textContent = `${testPrompt.length} characters`;
+        document.getElementById('test-compressed-size').textContent = `${compressed.length} characters`;
+        
+        const savings = testPrompt.length - compressed.length;
+        const ratio = (savings / testPrompt.length * 100).toFixed(2);
+        document.getElementById('test-savings').textContent = 
+            `Saved ${savings} characters (${ratio}% compression)`;
+    }
+    
+    // Show alert message
+    function showAlert(message, type) {
+        const alertContainer = document.getElementById('alert-container');
+        if (!alertContainer) return;
+        
+        const alertDiv = document.createElement('div');
+        alertDiv.className = `alert alert-${type}`;
+        alertDiv.textContent = message;
+        
+        alertContainer.innerHTML = '';
+        alertContainer.appendChild(alertDiv);
+        
+        setTimeout(() => {
+            alertDiv.remove();
+        }, 5000);
+    }
+});
+</script>
+
+<style>
+/* Custom styles for the editor page */
+.custom-instructions-container {
+    max-width: 900px;
+    margin: 0 auto;
+}
+
+.json-editor {
+    width: 100%;
+    height: 400px;
+    font-family: monospace;
+    font-size: 14px;
+    border: 1px solid var(--border-color);
+    border-radius: 4px;
+    padding: 10px;
+}
+
+.template-selector {
+    margin-bottom: 1rem;
+    display: flex;
+    gap: 0.5rem;
+}
+
+.help-section {
+    margin: 2rem 0;
+    background-color: var(--card-bg);
+    border: 1px solid var(--border-color);
+    border-radius: 4px;
+    padding: 1rem;
+}
+
+.collapsible-header {
+    cursor: pointer;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0.5rem 0;
+}
+
+.collapsible-icon {
+    font-weight: bold;
+    font-size: 1.2rem;
+}
+
+.collapsible-content {
+    display: none;
+    padding: 0.5rem 0;
+}
+
+.test-result {
+    margin-top: 2rem;
+    background-color: var(--card-bg);
+    border: 1px solid var(--border-color);
+    border-radius: 4px;
+    padding: 1rem;
+}
+
+.test-content {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1rem;
+    margin: 1rem 0;
+}
+
+.test-input, .test-output {
+    padding: 1rem;
+    border: 1px solid var(--border-color);
+    border-radius: 4px;
+}
+
+#test-original, #test-compressed {
+    font-family: monospace;
+    white-space: pre-wrap;
+    margin: 0.5rem 0;
+    padding: 0.5rem;
+    background-color: rgba(0, 0, 0, 0.05);
+    border-radius: 4px;
+    min-height: 80px;
+}
+
+.size-indicator {
+    text-align: right;
+    font-size: 0.8rem;
+    font-weight: bold;
+    color: var(--secondary-color);
+}
+
+.test-savings {
+    font-size: 1.2rem;
+    font-weight: bold;
+    text-align: center;
+    margin-top: 1rem;
+    padding: 0.5rem;
+    background-color: rgba(40, 167, 69, 0.1);
+    border-radius: 4px;
+    color: var(--success-color);
+}
+
+.hidden {
+    display: none;
+}
+</style>
+{% endblock %}

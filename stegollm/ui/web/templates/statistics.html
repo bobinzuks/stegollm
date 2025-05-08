@@ -1,0 +1,443 @@
+{% extends "base.html" %}
+
+{% block title %}StegoLLM - Statistics{% endblock %}
+{% block stats_active %}active{% endblock %}
+
+{% block content %}
+<div class="statistics-container">
+    <h1>Compression Statistics</h1>
+    
+    <div class="stats-cards">
+        <div class="stats-card">
+            <div class="stats-icon">
+                <i class="stats-emoji">📊</i>
+            </div>
+            <div class="stats-content">
+                <h3>Requests Processed</h3>
+                <div class="stats-value" id="requests-count">{{ metrics.requests }}</div>
+            </div>
+        </div>
+        
+        <div class="stats-card">
+            <div class="stats-icon">
+                <i class="stats-emoji">📝</i>
+            </div>
+            <div class="stats-content">
+                <h3>Original Size</h3>
+                <div class="stats-value" id="original-size">{{ metrics.original_size }} chars</div>
+            </div>
+        </div>
+        
+        <div class="stats-card">
+            <div class="stats-icon">
+                <i class="stats-emoji">📏</i>
+            </div>
+            <div class="stats-content">
+                <h3>Compressed Size</h3>
+                <div class="stats-value" id="compressed-size">{{ metrics.compressed_size }} chars</div>
+            </div>
+        </div>
+        
+        <div class="stats-card">
+            <div class="stats-icon">
+                <i class="stats-emoji">💰</i>
+            </div>
+            <div class="stats-content">
+                <h3>Characters Saved</h3>
+                <div class="stats-value" id="saved-chars">{{ metrics.original_size - metrics.compressed_size }} chars</div>
+            </div>
+        </div>
+        
+        <div class="stats-card">
+            <div class="stats-icon">
+                <i class="stats-emoji">📈</i>
+            </div>
+            <div class="stats-content">
+                <h3>Compression Ratio</h3>
+                <div class="stats-value" id="compression-ratio">
+                    {% if metrics.original_size > 0 %}
+                    {{ ((metrics.original_size - metrics.compressed_size) / metrics.original_size * 100)|round(2) }}%
+                    {% else %}
+                    0%
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+        
+        <div class="stats-card">
+            <div class="stats-icon">
+                <i class="stats-emoji">💸</i>
+            </div>
+            <div class="stats-content">
+                <h3>Estimated Savings</h3>
+                <div class="stats-value" id="cost-savings">
+                    ${{ ((metrics.original_size - metrics.compressed_size) / 1000 * 0.002)|round(2) }}
+                </div>
+                <div class="stats-subtitle">Based on $0.002 per 1K tokens</div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="charts-container">
+        <div class="chart-card">
+            <h2>Size Comparison</h2>
+            <div class="chart-wrapper">
+                <canvas id="sizeComparisonChart"></canvas>
+            </div>
+        </div>
+        
+        <div class="chart-card">
+            <h2>Compression Over Time</h2>
+            <div class="chart-wrapper">
+                <canvas id="timeSeriesChart"></canvas>
+            </div>
+        </div>
+    </div>
+    
+    <div class="history-section">
+        <h2>Compression History</h2>
+        <div class="history-controls">
+            <button id="clearHistoryBtn" class="btn btn-danger">Clear History</button>
+            <button id="exportDataBtn" class="btn">Export Data</button>
+        </div>
+        <div class="table-container">
+            <table class="history-table">
+                <thead>
+                    <tr>
+                        <th>Time</th>
+                        <th>API</th>
+                        <th>Original Size</th>
+                        <th>Compressed Size</th>
+                        <th>Savings</th>
+                        <th>Ratio</th>
+                    </tr>
+                </thead>
+                <tbody id="historyTableBody">
+                    <!-- Sample data row -->
+                    <tr>
+                        <td>{{ now }}</td>
+                        <td>OpenAI</td>
+                        <td>{{ metrics.original_size }}</td>
+                        <td>{{ metrics.compressed_size }}</td>
+                        <td>{{ metrics.original_size - metrics.compressed_size }}</td>
+                        <td>
+                            {% if metrics.original_size > 0 %}
+                            {{ ((metrics.original_size - metrics.compressed_size) / metrics.original_size * 100)|round(2) }}%
+                            {% else %}
+                            0%
+                            {% endif %}
+                        </td>
+                    </tr>
+                    <!-- More rows would be populated dynamically -->
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Initialize charts
+    const sizeCtx = document.getElementById('sizeComparisonChart');
+    const timeCtx = document.getElementById('timeSeriesChart');
+    
+    // Size comparison chart
+    const sizeChart = new Chart(sizeCtx, {
+        type: 'bar',
+        data: {
+            labels: ['Original', 'Compressed', 'Saved'],
+            datasets: [{
+                label: 'Characters',
+                data: [
+                    {{ metrics.original_size }},
+                    {{ metrics.compressed_size }},
+                    {{ metrics.original_size - metrics.compressed_size }}
+                ],
+                backgroundColor: [
+                    'rgba(54, 162, 235, 0.5)',
+                    'rgba(75, 192, 192, 0.5)',
+                    'rgba(255, 99, 132, 0.5)'
+                ],
+                borderColor: [
+                    'rgba(54, 162, 235, 1)',
+                    'rgba(75, 192, 192, 1)',
+                    'rgba(255, 99, 132, 1)'
+                ],
+                borderWidth: 1
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            scales: {
+                y: {
+                    beginAtZero: true
+                }
+            }
+        }
+    });
+    
+    // Time series chart (mock data for now)
+    const generateMockTimeData = () => {
+        const data = [];
+        const labels = [];
+        const now = new Date();
+        
+        for (let i = 30; i >= 0; i--) {
+            const date = new Date(now);
+            date.setDate(date.getDate() - i);
+            labels.push(date.toLocaleDateString());
+            
+            // Generate some random data that trends upward
+            const baseValue = {{ (metrics.original_size - metrics.compressed_size) / metrics.original_size * 100 if metrics.original_size > 0 else 50 }};
+            data.push(Math.max(10, Math.min(90, baseValue + (Math.random() * 20 - 10))));
+        }
+        
+        return { labels, data };
+    };
+    
+    const mockTimeData = generateMockTimeData();
+    
+    const timeChart = new Chart(timeCtx, {
+        type: 'line',
+        data: {
+            labels: mockTimeData.labels,
+            datasets: [{
+                label: 'Compression Ratio (%)',
+                data: mockTimeData.data,
+                fill: true,
+                backgroundColor: 'rgba(75, 192, 192, 0.2)',
+                borderColor: 'rgba(75, 192, 192, 1)',
+                tension: 0.4
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            scales: {
+                y: {
+                    beginAtZero: false,
+                    min: 0,
+                    max: 100,
+                    title: {
+                        display: true,
+                        text: 'Compression Ratio (%)'
+                    }
+                },
+                x: {
+                    title: {
+                        display: true,
+                        text: 'Date'
+                    }
+                }
+            }
+        }
+    });
+    
+    // Periodically update stats
+    function updateStats() {
+        fetch('/api/status')
+            .then(response => response.json())
+            .then(data => {
+                // Update metrics
+                document.getElementById('requests-count').textContent = data.metrics.requests;
+                document.getElementById('original-size').textContent = `${data.metrics.original_size} chars`;
+                document.getElementById('compressed-size').textContent = `${data.metrics.compressed_size} chars`;
+                
+                const savedChars = data.metrics.original_size - data.metrics.compressed_size;
+                document.getElementById('saved-chars').textContent = `${savedChars} chars`;
+                
+                let ratio = 0;
+                if (data.metrics.original_size > 0) {
+                    ratio = (savedChars / data.metrics.original_size) * 100;
+                }
+                document.getElementById('compression-ratio').textContent = `${ratio.toFixed(2)}%`;
+                
+                // Estimate cost savings (based on $0.002 per 1K tokens)
+                const costSavings = (savedChars / 1000) * 0.002;
+                document.getElementById('cost-savings').textContent = `$${costSavings.toFixed(2)}`;
+                
+                // Update charts
+                sizeChart.data.datasets[0].data = [
+                    data.metrics.original_size,
+                    data.metrics.compressed_size,
+                    savedChars
+                ];
+                sizeChart.update();
+            })
+            .catch(error => console.error('Error updating statistics:', error));
+    }
+    
+    // Update every 5 seconds
+    setInterval(updateStats, 5000);
+    
+    // Handle clear history button
+    document.getElementById('clearHistoryBtn').addEventListener('click', function() {
+        if (confirm('Are you sure you want to clear all compression history? This cannot be undone.')) {
+            fetch('/api/history/clear', {
+                method: 'POST'
+            })
+            .then(response => response.json())
+            .then(data => {
+                // Clear the table
+                document.getElementById('historyTableBody').innerHTML = '';
+                alert('History cleared successfully');
+            })
+            .catch(error => console.error('Error clearing history:', error));
+        }
+    });
+    
+    // Handle export data button
+    document.getElementById('exportDataBtn').addEventListener('click', function() {
+        fetch('/api/history/export')
+            .then(response => response.blob())
+            .then(blob => {
+                const url = window.URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.style.display = 'none';
+                a.href = url;
+                a.download = 'stegollm_compression_history.csv';
+                document.body.appendChild(a);
+                a.click();
+                window.URL.revokeObjectURL(url);
+            })
+            .catch(error => console.error('Error exporting data:', error));
+    });
+});
+</script>
+
+<style>
+/* Statistics page specific styles */
+.statistics-container {
+    max-width: 1200px;
+    margin: 0 auto;
+}
+
+.stats-cards {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+    gap: 1rem;
+    margin-bottom: 2rem;
+}
+
+.stats-card {
+    background-color: var(--card-bg);
+    border-radius: 8px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    padding: 1.5rem;
+    display: flex;
+    align-items: center;
+}
+
+.stats-icon {
+    background-color: rgba(75, 192, 192, 0.2);
+    border-radius: 50%;
+    width: 60px;
+    height: 60px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-right: 1rem;
+}
+
+.stats-emoji {
+    font-size: 2rem;
+    font-style: normal;
+}
+
+.stats-content {
+    flex: 1;
+}
+
+.stats-value {
+    font-size: 1.8rem;
+    font-weight: bold;
+    color: var(--primary-color);
+    margin-top: 0.5rem;
+}
+
+.stats-subtitle {
+    font-size: 0.8rem;
+    color: var(--secondary-color);
+    margin-top: 0.25rem;
+}
+
+.charts-container {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 2rem;
+    margin-bottom: 2rem;
+}
+
+@media (min-width: 768px) {
+    .charts-container {
+        grid-template-columns: 1fr 1fr;
+    }
+}
+
+.chart-card {
+    background-color: var(--card-bg);
+    border-radius: 8px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    padding: 1.5rem;
+}
+
+.chart-card h2 {
+    margin-bottom: 1rem;
+    font-size: 1.5rem;
+    font-weight: 600;
+    color: var(--primary-color);
+}
+
+.chart-wrapper {
+    height: 300px;
+}
+
+.history-section {
+    background-color: var(--card-bg);
+    border-radius: 8px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    padding: 1.5rem;
+}
+
+.history-section h2 {
+    margin-bottom: 1rem;
+    font-size: 1.5rem;
+    font-weight: 600;
+    color: var(--primary-color);
+}
+
+.history-controls {
+    display: flex;
+    justify-content: flex-end;
+    gap: 1rem;
+    margin-bottom: 1rem;
+}
+
+.table-container {
+    overflow-x: auto;
+}
+
+.history-table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.history-table th, .history-table td {
+    padding: 0.75rem;
+    text-align: left;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.history-table th {
+    background-color: rgba(0, 0, 0, 0.05);
+    font-weight: 600;
+}
+
+.history-table tbody tr:hover {
+    background-color: rgba(0, 0, 0, 0.03);
+}
+</style>
+{% endblock %}

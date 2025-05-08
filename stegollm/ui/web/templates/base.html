@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}StegoLLM{% endblock %}</title>
+    <link rel="stylesheet" href="/static/css/styles.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+    <header>
+        <nav>
+            <div class="logo">
+                <h1>StegoLLM</h1>
+                <div class="status-indicator">
+                    <span id="status-light" class="status-light status-active"></span>
+                    <span id="status-text">Compression Active</span>
+                </div>
+            </div>
+            <ul class="nav-links">
+                <li><a href="/" class="{% block home_active %}{% endblock %}">Dashboard</a></li>
+                <li><a href="/settings" class="{% block settings_active %}{% endblock %}">Settings</a></li>
+                <li><a href="/statistics" class="{% block stats_active %}{% endblock %}">Statistics</a></li>
+                <li><a href="/custom-instructions" class="{% block custom_active %}{% endblock %}">Custom Instructions</a></li>
+            </ul>
+        </nav>
+    </header>
+    
+    <main>
+        {% block content %}{% endblock %}
+    </main>
+    
+    <footer>
+        <p>&copy; 2025 StegoLLM</p>
+    </footer>
+
+    <script src="/static/js/main.js"></script>
+    {% block scripts %}{% endblock %}
+</body>
+</html>

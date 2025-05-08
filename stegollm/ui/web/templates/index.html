@@ -1,0 +1,198 @@
+{% extends "base.html" %}
+
+{% block title %}StegoLLM - Dashboard{% endblock %}
+{% block home_active %}active{% endblock %}
+
+{% block content %}
+<div class="dashboard">
+    <section class="status-card">
+        <h2>Proxy Status</h2>
+        <div class="status-details">
+            <div class="status-item">
+                <span class="label">Compression:</span>
+                <span class="value" id="compression-status">
+                    {% if status.compression_enabled %}
+                    <span class="status-active">🟢 Active</span>
+                    {% else %}
+                    <span class="status-inactive">🔴 Inactive</span>
+                    {% endif %}
+                </span>
+                <button id="toggle-compression" class="toggle-btn">
+                    {% if status.compression_enabled %}
+                    Disable
+                    {% else %}
+                    Enable
+                    {% endif %}
+                </button>
+            </div>
+            <div class="status-item">
+                <span class="label">Current Strategy:</span>
+                <span class="value" id="current-strategy">{{ status.strategy }}</span>
+            </div>
+            <div class="status-item">
+                <span class="label">Deep Learning:</span>
+                <span class="value" id="dl-status">
+                    {% if status.deep_learning_enabled %}
+                    <span class="status-active">🟢 Active</span>
+                    {% else %}
+                    <span class="status-inactive">🔴 Inactive</span>
+                    {% endif %}
+                </span>
+                <button id="toggle-dl" class="toggle-btn">
+                    {% if status.deep_learning_enabled %}
+                    Disable
+                    {% else %}
+                    Enable
+                    {% endif %}
+                </button>
+            </div>
+            <div class="status-item">
+                <span class="label">Proxy Port:</span>
+                <span class="value">{{ proxy_port }}</span>
+            </div>
+            <div class="status-item">
+                <span class="label">Web UI Port:</span>
+                <span class="value">{{ ui_port }}</span>
+            </div>
+        </div>
+    </section>
+    
+    <section class="metrics-card">
+        <h2>Compression Metrics</h2>
+        <div class="metrics-details">
+            <div class="metric-item">
+                <span class="label">Requests Processed:</span>
+                <span class="value" id="requests-count">{{ metrics.requests }}</span>
+            </div>
+            <div class="metric-item">
+                <span class="label">Total Original Size:</span>
+                <span class="value" id="original-size">{{ metrics.original_size }} chars</span>
+            </div>
+            <div class="metric-item">
+                <span class="label">Total Compressed Size:</span>
+                <span class="value" id="compressed-size">{{ metrics.compressed_size }} chars</span>
+            </div>
+            <div class="metric-item">
+                <span class="label">Saved Characters:</span>
+                <span class="value" id="saved-chars">{{ metrics.original_size - metrics.compressed_size }} chars</span>
+            </div>
+            <div class="metric-item">
+                <span class="label">Compression Ratio:</span>
+                <span class="value" id="compression-ratio">
+                    {% if metrics.original_size > 0 %}
+                    {{ ((metrics.original_size - metrics.compressed_size) / metrics.original_size * 100)|round(2) }}%
+                    {% else %}
+                    0%
+                    {% endif %}
+                </span>
+            </div>
+        </div>
+        <div class="chart-container">
+            <canvas id="compression-chart"></canvas>
+        </div>
+    </section>
+    
+    <section class="setup-card">
+        <h2>VS Code Setup</h2>
+        <div class="setup-instructions">
+            <p>Configure VS Code to use the StegoLLM proxy:</p>
+            <ol>
+                <li>Open VS Code Settings (File > Preferences > Settings)</li>
+                <li>Search for "http.proxy"</li>
+                <li>Set the value to: <code>http://localhost:{{ proxy_port }}</code></li>
+                <li>Restart VS Code</li>
+            </ol>
+            <div class="code-block">
+                <pre><code>{
+    "http.proxy": "http://localhost:{{ proxy_port }}"
+}</code></pre>
+            </div>
+        </div>
+    </section>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Toggle compression
+    const toggleCompBtn = document.getElementById('toggle-compression');
+    if (toggleCompBtn) {
+        toggleCompBtn.addEventListener('click', function() {
+            const isEnabled = document.getElementById('compression-status').innerText.includes('Active');
+            fetch('/api/settings/toggle_compression', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ enabled: !isEnabled }),
+            })
+            .then(response => response.json())
+            .then(data => {
+                location.reload();
+            })
+            .catch(error => console.error('Error:', error));
+        });
+    }
+    
+    // Toggle deep learning
+    const toggleDlBtn = document.getElementById('toggle-dl');
+    if (toggleDlBtn) {
+        toggleDlBtn.addEventListener('click', function() {
+            const isEnabled = document.getElementById('dl-status').innerText.includes('Active');
+            fetch('/api/settings/toggle_deep_learning', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ enabled: !isEnabled }),
+            })
+            .then(response => response.json())
+            .then(data => {
+                location.reload();
+            })
+            .catch(error => console.error('Error:', error));
+        });
+    }
+    
+    // Initialize compression chart
+    const ctx = document.getElementById('compression-chart');
+    if (ctx) {
+        new Chart(ctx, {
+            type: 'bar',
+            data: {
+                labels: ['Original Size', 'Compressed Size', 'Saved'],
+                datasets: [{
+                    label: 'Characters',
+                    data: [
+                        {{ metrics.original_size }}, 
+                        {{ metrics.compressed_size }}, 
+                        {{ metrics.original_size - metrics.compressed_size }}
+                    ],
+                    backgroundColor: [
+                        'rgba(54, 162, 235, 0.5)',
+                        'rgba(75, 192, 192, 0.5)',
+                        'rgba(255, 99, 132, 0.5)'
+                    ],
+                    borderColor: [
+                        'rgba(54, 162, 235, 1)',
+                        'rgba(75, 192, 192, 1)',
+                        'rgba(255, 99, 132, 1)'
+                    ],
+                    borderWidth: 1
+                }]
+            },
+            options: {
+                scales: {
+                    y: {
+                        beginAtZero: true
+                    }
+                },
+                responsive: true,
+                maintainAspectRatio: false
+            }
+        });
+    }
+});
+</script>
+{% endblock %}

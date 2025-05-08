@@ -1,0 +1,245 @@
+{% extends "base.html" %}
+
+{% block title %}StegoLLM - Settings{% endblock %}
+{% block settings_active %}active{% endblock %}
+
+{% block content %}
+<div class="settings-container">
+    <h1>Settings</h1>
+    
+    {% if message %}
+    <div class="alert alert-{{ message_type }}">
+        {{ message }}
+    </div>
+    {% endif %}
+    
+    <form class="settings-form" id="settingsForm">
+        <section class="settings-section">
+            <h2>General Settings</h2>
+            
+            <div class="form-group">
+                <div class="form-check">
+                    <input type="checkbox" class="form-check-input" id="compressionEnabled" name="compression_enabled" 
+                           {% if config.compression.enabled %}checked{% endif %}>
+                    <label class="form-check-label" for="compressionEnabled">Enable Compression</label>
+                </div>
+                <small class="form-text text-muted">When enabled, StegoLLM will compress prompts sent to LLM APIs.</small>
+            </div>
+            
+            <div class="form-group">
+                <label for="strategy">Compression Strategy</label>
+                <select class="form-control" id="strategy" name="strategy">
+                    <option value="dictionary" {% if config.compression.strategy == "dictionary" %}selected{% endif %}>Dictionary-Based</option>
+                    <option value="huffman" {% if config.compression.strategy == "huffman" %}selected{% endif %}>Huffman Coding</option>
+                    <option value="base2048" {% if config.compression.strategy == "base2048" %}selected{% endif %}>Base2048 Encoding</option>
+                </select>
+                <small class="form-text text-muted">The strategy to use for compressing prompts.</small>
+            </div>
+            
+            <div class="form-group">
+                <div class="form-check">
+                    <input type="checkbox" class="form-check-input" id="deepLearningEnabled" name="deep_learning_enabled" 
+                           {% if config.compression.deep_learning_enabled %}checked{% endif %}>
+                    <label class="form-check-label" for="deepLearningEnabled">Enable Deep Learning Compression</label>
+                </div>
+                <small class="form-text text-muted">When enabled, StegoLLM will use machine learning to enhance compression.</small>
+            </div>
+        </section>
+        
+        <section class="settings-section">
+            <h2>API Compatibility</h2>
+            
+            <div class="form-group">
+                <div class="form-check">
+                    <input type="checkbox" class="form-check-input" id="apiCompatEnabled" name="api_compat_enabled" 
+                           {% if config.api_compat.enabled %}checked{% endif %}>
+                    <label class="form-check-label" for="apiCompatEnabled">Enable API Compatibility</label>
+                </div>
+                <small class="form-text text-muted">When enabled, StegoLLM will detect and adapt to different LLM API formats.</small>
+            </div>
+            
+            <div class="form-group">
+                <label>Supported APIs</label>
+                <div class="form-check">
+                    <input type="checkbox" class="form-check-input" id="openaiEnabled" name="openai_enabled" 
+                           {% if "openai" in config.api_compat.supported_apis %}checked{% endif %}>
+                    <label class="form-check-label" for="openaiEnabled">OpenAI API</label>
+                </div>
+                <div class="form-check">
+                    <input type="checkbox" class="form-check-input" id="claudeEnabled" name="claude_enabled" 
+                           {% if "claude" in config.api_compat.supported_apis %}checked{% endif %}>
+                    <label class="form-check-label" for="claudeEnabled">Claude API</label>
+                </div>
+                <div class="form-check">
+                    <input type="checkbox" class="form-check-input" id="geminiEnabled" name="gemini_enabled" 
+                           {% if "gemini" in config.api_compat.supported_apis %}checked{% endif %}>
+                    <label class="form-check-label" for="geminiEnabled">Gemini API</label>
+                </div>
+            </div>
+        </section>
+        
+        <section class="settings-section">
+            <h2>Security Settings</h2>
+            
+            <div class="form-group">
+                <div class="form-check">
+                    <input type="checkbox" class="form-check-input" id="tlsTermination" name="tls_termination" 
+                           {% if config.security.tls_termination %}checked{% endif %}>
+                    <label class="form-check-label" for="tlsTermination">Enable TLS Termination</label>
+                </div>
+                <small class="form-text text-muted">When enabled, StegoLLM will handle TLS encryption for API calls.</small>
+            </div>
+            
+            <div class="form-group">
+                <div class="form-check">
+                    <input type="checkbox" class="form-check-input" id="cleanSensitiveData" name="clean_sensitive_data" 
+                           {% if config.security.clean_sensitive_data %}checked{% endif %}>
+                    <label class="form-check-label" for="cleanSensitiveData">Clean Sensitive Data</label>
+                </div>
+                <small class="form-text text-muted">When enabled, StegoLLM will attempt to identify and remove sensitive data.</small>
+            </div>
+        </section>
+        
+        <section class="settings-section">
+            <h2>UI Settings</h2>
+            
+            <div class="form-group">
+                <label for="theme">UI Theme</label>
+                <select class="form-control" id="theme" name="theme">
+                    <option value="light" {% if config.ui.theme == "light" %}selected{% endif %}>Light</option>
+                    <option value="dark" {% if config.ui.theme == "dark" %}selected{% endif %}>Dark</option>
+                </select>
+                <small class="form-text text-muted">The theme to use for the web UI.</small>
+            </div>
+        </section>
+        
+        <div class="form-actions">
+            <button type="submit" class="btn">Save Settings</button>
+            <button type="button" class="btn btn-danger" id="resetDefaultsBtn">Reset to Defaults</button>
+        </div>
+    </form>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Handle form submission
+    const form = document.getElementById('settingsForm');
+    if (form) {
+        form.addEventListener('submit', function(event) {
+            event.preventDefault();
+            
+            // Collect form data
+            const formData = new FormData(form);
+            const settings = {};
+            
+            // Process compression settings
+            settings.compression = {
+                enabled: formData.get('compression_enabled') === 'on',
+                strategy: formData.get('strategy'),
+                deep_learning_enabled: formData.get('deep_learning_enabled') === 'on'
+            };
+            
+            // Process API compatibility settings
+            settings.api_compat = {
+                enabled: formData.get('api_compat_enabled') === 'on',
+                supported_apis: []
+            };
+            
+            if (formData.get('openai_enabled') === 'on') settings.api_compat.supported_apis.push('openai');
+            if (formData.get('claude_enabled') === 'on') settings.api_compat.supported_apis.push('claude');
+            if (formData.get('gemini_enabled') === 'on') settings.api_compat.supported_apis.push('gemini');
+            
+            // Process security settings
+            settings.security = {
+                tls_termination: formData.get('tls_termination') === 'on',
+                clean_sensitive_data: formData.get('clean_sensitive_data') === 'on'
+            };
+            
+            // Process UI settings
+            settings.ui = {
+                theme: formData.get('theme')
+            };
+            
+            // Save settings
+            fetch('/api/settings', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(settings),
+            })
+            .then(response => response.json())
+            .then(data => {
+                // Show success message
+                const alertContainer = document.createElement('div');
+                alertContainer.className = 'alert alert-success';
+                alertContainer.textContent = 'Settings saved successfully';
+                
+                // Insert at the top of the form
+                form.insertBefore(alertContainer, form.firstChild);
+                
+                // Auto-remove after 3 seconds
+                setTimeout(() => {
+                    alertContainer.remove();
+                }, 3000);
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                
+                // Show error message
+                const alertContainer = document.createElement('div');
+                alertContainer.className = 'alert alert-danger';
+                alertContainer.textContent = 'Error saving settings';
+                
+                // Insert at the top of the form
+                form.insertBefore(alertContainer, form.firstChild);
+                
+                // Auto-remove after 3 seconds
+                setTimeout(() => {
+                    alertContainer.remove();
+                }, 3000);
+            });
+        });
+    }
+    
+    // Handle reset to defaults button
+    const resetBtn = document.getElementById('resetDefaultsBtn');
+    if (resetBtn) {
+        resetBtn.addEventListener('click', function() {
+            if (confirm('Are you sure you want to reset all settings to defaults?')) {
+                fetch('/api/settings/reset', {
+                    method: 'POST',
+                })
+                .then(response => response.json())
+                .then(data => {
+                    // Reload the page to show updated settings
+                    window.location.reload();
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                });
+            }
+        });
+    }
+    
+    // Handle theme switching
+    const themeSelect = document.getElementById('theme');
+    if (themeSelect) {
+        themeSelect.addEventListener('change', function() {
+            if (this.value === 'dark') {
+                document.body.classList.add('dark-theme');
+            } else {
+                document.body.classList.remove('dark-theme');
+            }
+        });
+        
+        // Apply theme on page load
+        if (themeSelect.value === 'dark') {
+            document.body.classList.add('dark-theme');
+        }
+    }
+});
+</script>
+{% endblock %}
