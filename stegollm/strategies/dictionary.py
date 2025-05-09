@@ -191,8 +191,15 @@ class DictionaryStrategy(BaseStrategy):
         
         # Replace each key with its value
         for key in sorted_keys:
-            # Use word boundaries to avoid partial replacements
-            pattern = r'\b' + re.escape(key) + r'\b'
-            decompressed_prompt = re.sub(pattern, self.decompression_dict[key], decompressed_prompt)
+            # Special handling for keys with special characters like ":"
+            if any(c in key for c in ":.,;!?"):
+                # For keys with special characters, use a space or start/end of string as boundary
+                pattern = r'(^|\s)' + re.escape(key) + r'($|\s)'
+                replacement = r'\1' + self.decompression_dict[key] + r'\2'
+                decompressed_prompt = re.sub(pattern, replacement, decompressed_prompt)
+            else:
+                # Use word boundaries for normal words
+                pattern = r'\b' + re.escape(key) + r'\b'
+                decompressed_prompt = re.sub(pattern, self.decompression_dict[key], decompressed_prompt)
         
         return decompressed_prompt

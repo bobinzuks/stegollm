@@ -5,7 +5,7 @@ Tests for the API detector.
 import json
 import pytest
 from unittest.mock import MagicMock
-from mitmproxy.http import HTTPFlow, HTTPRequest, HTTPResponse
+from mitmproxy.http import HTTPFlow, Request, Response
 from mitmproxy import http
 
 from stegollm.api_compat.detector import ApiDetector
@@ -13,7 +13,7 @@ from stegollm.api_compat.detector import ApiDetector
 def create_mock_flow(url, request_content=None, response_content=None):
     """Create a mock HTTPFlow for testing."""
     # Create mock request
-    mock_request = MagicMock(spec=HTTPRequest)
+    mock_request = MagicMock(spec=Request)
     mock_request.url = url
     if request_content:
         mock_request.content = json.dumps(request_content).encode("utf-8")
@@ -27,7 +27,7 @@ def create_mock_flow(url, request_content=None, response_content=None):
     
     # Add response if provided
     if response_content:
-        mock_response = MagicMock(spec=HTTPResponse)
+        mock_response = MagicMock(spec=Response)
         mock_response.content = json.dumps(response_content).encode("utf-8")
         mock_response.headers = {"content-length": str(len(mock_response.content))}
         mock_flow.response = mock_response
