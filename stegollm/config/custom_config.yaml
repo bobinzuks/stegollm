@@ -1,0 +1,7 @@
+api_compat:
+  enabled: true
+  supported_apis:
+    - openai
+    - claude
+    - gemini
+    - requesty
